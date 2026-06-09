@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: membership-program
+  # Default to the H2 profile for a zero-setup, demo-able run.
+  # Override with: --spring.profiles.active=postgres
+  profiles:
+    active: h2
+  jpa:
+    # Disable open-session-in-view: keeps lazy loading out of the view layer and
+    # forces transactional boundaries to be explicit in the service layer.
+    open-in-view: false
+
+# Schema strategy (per PLAN.md): Hibernate ddl-auto + data.sql seed, no migration tool.
+# Profile-specific datasource + JPA settings live in application-{h2,postgres}.yml.
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always

@@ -1,0 +1,24 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/membership}
+    driver-class-name: org.postgresql.Driver
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+  jpa:
+    hibernate:
+      # update: keep the dev schema in sync with entities without dropping data.
+      # For real production, switch to 'validate' and manage schema out-of-band.
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          lob:
+            non_contextual_creation: true
+    show-sql: false
+    defer-datasource-initialization: true
+  sql:
+    init:
+      # 'always' re-runs data.sql on every boot. For Postgres, seed scripts must be
+      # idempotent (INSERT ... ON CONFLICT DO NOTHING). Set to 'never' once seeded.
+      mode: always
