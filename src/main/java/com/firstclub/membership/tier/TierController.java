@@ -1,5 +1,6 @@
 package com.firstclub.membership.tier;
 
+import com.firstclub.membership.tier.dto.MembershipTierDetailResponse;
 import com.firstclub.membership.tier.dto.MembershipTierResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,7 +26,7 @@ public class TierController {
     }
 
     @GetMapping("/{id}")
-    public MembershipTierResponse getTier(@PathVariable Long id) {
+    public MembershipTierDetailResponse getTier(@PathVariable Long id) {
         return tierService.getTier(id);
     }
 }

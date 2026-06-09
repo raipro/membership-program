@@ -34,3 +34,29 @@ INSERT INTO plan_tier_price (id, plan_id, tier_id, price, currency, active) VALU
   (7, 3, 1,  999.00, 'INR', TRUE),
   (8, 3, 2, 1999.00, 'INR', TRUE),
   (9, 3, 3, 3999.00, 'INR', TRUE);
+
+-- ---------------------------------------------------------------------------
+-- Benefit catalog (master list of perk types).
+-- ---------------------------------------------------------------------------
+INSERT INTO benefit (id, code, type, description, active, created_at) VALUES
+  (1, 'FREE_DELIVERY',    'FREE_DELIVERY',       'Free delivery on eligible orders',          TRUE, CURRENT_TIMESTAMP),
+  (2, 'EXTRA_DISCOUNT',   'PERCENTAGE_DISCOUNT', 'Extra discount on selected items',          TRUE, CURRENT_TIMESTAMP),
+  (3, 'EARLY_ACCESS',     'EARLY_ACCESS',        'Early access to sales and exclusive deals', TRUE, CURRENT_TIMESTAMP),
+  (4, 'PRIORITY_SUPPORT', 'PRIORITY_SUPPORT',    'Priority customer support',                 TRUE, CURRENT_TIMESTAMP);
+
+-- ---------------------------------------------------------------------------
+-- Tier -> benefit links with per-tier metadata. Same benefit, different config
+-- per tier (e.g. free-delivery threshold, discount %) demonstrates configurability.
+-- ---------------------------------------------------------------------------
+INSERT INTO tier_benefit (id, tier_id, benefit_id, benefit_metadata) VALUES
+  -- Silver: free delivery above a threshold only
+  (1, 1, 1, '{"minOrderValue": 500}'),
+  -- Gold: unconditional free delivery, 5% discount, 12h early access
+  (2, 2, 1, '{"minOrderValue": 0}'),
+  (3, 2, 2, '{"percentage": 5, "appliesTo": "SELECTED_ITEMS"}'),
+  (4, 2, 3, '{"earlyAccessHours": 12}'),
+  -- Platinum: free delivery, 10% on everything, 24h early access, phone support
+  (5, 3, 1, '{"minOrderValue": 0}'),
+  (6, 3, 2, '{"percentage": 10, "appliesTo": "ALL_ITEMS"}'),
+  (7, 3, 3, '{"earlyAccessHours": 24}'),
+  (8, 3, 4, '{"channel": "PHONE", "slaHours": 4}');

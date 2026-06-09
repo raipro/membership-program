@@ -100,7 +100,7 @@ unique index isn't auto-generated.
        id (PK)                               id (PK)
        tier_id (FK→tier)                     tier_id (FK→tier)
        benefit_id (FK→benefit)               type (enum: ORDER_COUNT /
-       config_json (text)                      MONTHLY_SPEND / COHORT)
+       benefit_metadata (text)                 MONTHLY_SPEND / COHORT)
        UQ(tier_id, benefit_id)               threshold (numeric)
                                              config_json (text)
 
@@ -151,7 +151,7 @@ unique index isn't auto-generated.
 
 - `subscription` → exactly one `plan` and one `tier`. One ACTIVE per user enforced at the app layer
   (guard + `@Version` optimistic lock), since `ddl-auto` won't generate a partial unique index.
-- `tier` ↔ `benefit` many-to-many through `tier_benefit`, with per-tier `config_json`
+- `tier` ↔ `benefit` many-to-many through `tier_benefit`, with per-tier `benefit_metadata`
   (stored as `text` JSON for H2/Postgres portability; e.g. discount % = 10 for Gold, 15 for Platinum).
 - `tier` → many `tier_criterion` (eligibility rules).
 - `plan_tier_price` → the single source of truth for what subscribing costs.
@@ -169,7 +169,7 @@ Each task is independently codeable, reviewable, and leaves the app compiling/ru
 |------|-------|--------------------------------|
 | **Task 1 — Project skeleton** | Spring Boot + Maven setup, dependencies (Web, JPA, Validation, H2, Postgres, Lombok), profiles (`h2`/`postgres`), `ddl-auto` + `data.sql` config, package structure, `GlobalExceptionHandler`, base error DTO. | App boots, `/actuator/health` green. |
 | **Task 2 — Plan & Tier catalog** | Entities `MembershipPlan`, `MembershipTier`, `plan_tier_price`, repos, `data.sql` seed data, read APIs: `GET /plans`, `GET /tiers`, `GET /tiers/{id}`, `GET /plans/pricing` (full priceable matrix). | "Get membership plans and tiers" requirement done. |
-| **Task 3 — Benefits & configurability** | `Benefit`, `TierBenefit` (with `config_json`), `BenefitService` to resolve effective benefits for a tier, `GET /tiers/{id}/benefits`. Strategy seam for benefit types (delivery, discount, exclusive deals, priority support). | Configurable perks per tier demonstrated. |
+| **Task 3 — Benefits & configurability** | `Benefit`, `TierBenefit` (with `benefit_metadata`), `BenefitService` to resolve effective benefits for a tier, `GET /tiers/{id}/benefits`. Strategy seam for benefit types (delivery, discount, exclusive deals, priority support). | Configurable perks per tier demonstrated. |
 | **Task 4 — Subscription core** | `Subscription` entity + status state machine, `SubscriptionService`: **subscribe (plan+tier)** with price resolved from `plan_tier_price`, **track current membership & expiry**, `POST /subscriptions`, `GET /users/{id}/subscription`. Introduce `TierEligibilityService` seam (initial impl: only base tier eligible) so subscribe is gated from day one; Task 6 swaps in the real criteria impl. Concurrency: `@Version` + one-active-per-user guard + idempotency. | Core subscribe + tracking working, gate seam in place. |
 | **Task 5 — Lifecycle: upgrade / downgrade / cancel** | Tier upgrade & downgrade **gated by eligibility ceiling** (reject `rank > eligibleTier.rank`), proration via `ProrationPolicy` seam, cancel, `subscription_history` audit writes, endpoints `POST /subscriptions/{id}/upgrade\|downgrade\|cancel`. | Full user-action set complete, audited, gate-enforced. |
 | **Task 6 — Tier evaluation engine** | `TierCriterion` strategy interface + `OrderCountCriterion`, `MonthlySpendCriterion`, `CohortCriterion`. `TierEvaluationService` computes `eligibleTier` (authorization ceiling) from `user_order_stats`, persists to `user_tier_status`. Base tier ungated. Endpoint to ingest/simulate order stats (`POST /users/{id}/orders`) + `POST /users/{id}/tier/evaluate` + `GET /users/{id}/tier/eligibility`. | Eligibility gate that powers Task 5 — the standout abstraction. |

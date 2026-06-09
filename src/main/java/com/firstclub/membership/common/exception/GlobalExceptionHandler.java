@@ -1,6 +1,8 @@
 package com.firstclub.membership.common.exception;
 
+import com.firstclub.membership.benefit.BenefitMetadataException;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -17,6 +19,7 @@ import java.util.List;
  * bodies themselves — they just throw domain exceptions.
  */
 @RestControllerAdvice
+@Slf4j
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(ResourceNotFoundException.class)
@@ -54,6 +57,15 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex, HttpServletRequest request) {
         return build(HttpStatus.BAD_REQUEST, "BAD_REQUEST", ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(BenefitMetadataException.class)
+    public ResponseEntity<ErrorResponse> handleBenefitMetadata(BenefitMetadataException ex,
+                                                              HttpServletRequest request) {
+        // Operator/config error: log the precise cause for diagnosis, return a generic 500.
+        log.error("Malformed benefit metadata at {}: {}", request.getRequestURI(), ex.getMessage(), ex);
+        return build(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR",
+                "An unexpected error occurred", request);
     }
 
     @ExceptionHandler(Exception.class)

@@ -1,7 +1,10 @@
 package com.firstclub.membership.tier;
 
+import com.firstclub.membership.benefit.BenefitService;
+import com.firstclub.membership.benefit.dto.MembershipBenefitResponse;
 import com.firstclub.membership.common.exception.ResourceNotFoundException;
 import com.firstclub.membership.common.mapper.MembershipMapper;
+import com.firstclub.membership.tier.dto.MembershipTierDetailResponse;
 import com.firstclub.membership.tier.dto.MembershipTierResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,6 +21,7 @@ import java.util.List;
 public class TierService {
 
     private final TierRepository tierRepository;
+    private final BenefitService benefitService;
     private final MembershipMapper mapper;
 
     /** All active tiers, ordered by rank (Silver → Gold → Platinum). */
@@ -25,9 +29,18 @@ public class TierService {
         return mapper.toTierResponseList(tierRepository.findByActiveTrueOrderByRankAsc());
     }
 
-    public MembershipTierResponse getTier(Long id) {
+    /** A single tier with its resolved benefits embedded. */
+    public MembershipTierDetailResponse getTier(Long id) {
         MembershipTier tier = tierRepository.findById(id)
                 .orElseThrow(() -> ResourceNotFoundException.of("Tier", id));
-        return mapper.toTierResponse(tier);
+        List<MembershipBenefitResponse> benefits = benefitService.getBenefitsForTier(id);
+        return new MembershipTierDetailResponse(
+                tier.getId(),
+                tier.getCode(),
+                tier.getName(),
+                tier.getRank(),
+                tier.getDescription(),
+                tier.isActive(),
+                benefits);
     }
 }
