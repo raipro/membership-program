@@ -7,6 +7,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.List;
 
@@ -40,6 +41,14 @@ public class GlobalExceptionHandler {
                 request.getRequestURI(),
                 details);
         return ResponseEntity.badRequest().body(body);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException ex,
+                                                            HttpServletRequest request) {
+        String required = ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "expected type";
+        String message = "Parameter '%s' must be of type %s".formatted(ex.getName(), required);
+        return build(HttpStatus.BAD_REQUEST, "BAD_REQUEST", message, request);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

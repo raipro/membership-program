@@ -8,10 +8,9 @@ spring:
     hibernate:
       # create-drop: schema is generated from entities on startup and dropped on shutdown.
       ddl-auto: create-drop
-    properties:
-      hibernate:
-        format_sql: true
-    show-sql: true
+    # SQL logging off by default (kept quiet for demos). To inspect queries, set
+    # show-sql: true or raise logging.level.org.hibernate.SQL to DEBUG.
+    show-sql: false
     # Ensure data.sql seed runs AFTER Hibernate has created the schema.
     defer-datasource-initialization: true
   sql:
