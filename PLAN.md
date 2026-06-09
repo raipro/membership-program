@@ -174,7 +174,7 @@ Each task is independently codeable, reviewable, and leaves the app compiling/ru
 | **Task 5 — Lifecycle: upgrade / downgrade / cancel** | Tier upgrade & downgrade **gated by eligibility ceiling** (reject `rank > eligibleTier.rank`), cancel, endpoints `POST /subscriptions/{id}/upgrade\|downgrade\|cancel`. Tier change is immediate, updates the price snapshot, no mid-cycle money movement. (Proration + `subscription_history` audit dropped — not core; see decisions.) | Full user-action set complete, gate-enforced. |
 | **Task 6 — Tier evaluation engine** | `TierCriterion` strategy interface + `OrderCountCriterion`, `MonthlySpendCriterion`, `CohortCriterion`. `TierEvaluationService` computes `eligibleTier` (authorization ceiling) from `user_order_stats`, persists to `user_tier_status`. Base tier ungated. Endpoint to ingest/simulate order stats (`POST /users/{id}/orders`) + `POST /users/{id}/tier/evaluate` + `GET /users/{id}/tier/eligibility`. | Eligibility gate that powers Task 5 — the standout abstraction. |
 | **Task 7 — Scheduled jobs & expiry** | `@Scheduled` sweep: expire past-due subscriptions, auto-renew, periodic tier re-evaluation. Domain events for upgrade/expire. | Expiry/renewal automation. |
-| **Task 8 — Hardening & demo** | Integration tests (Testcontainers/H2), concurrency test (parallel subscribe), seed/demo script, README with curl walkthrough, OpenAPI/Swagger UI. | Demo-able, evaluation criteria met. |
+| **Task 8 — Hardening & demo** | Integration tests (`@SpringBootTest` + MockMvc over H2) for catalog, subscribe/cancel/idempotency/gate, evaluation, sweep; README with curl walkthrough; OpenAPI/Swagger UI. (Concurrency/parallel-subscribe test skipped per scope decision.) | Demo-able, evaluation criteria met. |
 
 ---
 
