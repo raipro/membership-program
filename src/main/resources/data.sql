@@ -68,3 +68,17 @@ INSERT INTO tier_benefit (id, tier_id, benefit_id, benefit_metadata) VALUES
   (6, 3, 2, '{"percentage": 10, "appliesTo": "ALL_ITEMS"}'),
   (7, 3, 3, '{"earlyAccessHours": 24}'),
   (8, 3, 4, '{"channel": "PHONE", "slaHours": 4}');
+
+-- ---------------------------------------------------------------------------
+-- Tier eligibility criteria. Silver (base) has none → always eligible.
+-- Multiple criteria on a tier qualify on ANY one (OR): e.g. Gold via 5+ orders
+-- OR 3000+ spend OR PREMIUM cohort. threshold = inclusive minimum.
+-- ---------------------------------------------------------------------------
+INSERT INTO tier_criterion (id, tier_id, type, threshold, criterion_metadata) VALUES
+  -- Gold (rank 2)
+  (1, 2, 'ORDER_COUNT',   5,    NULL),
+  (2, 2, 'MONTHLY_SPEND', 3000, NULL),
+  (3, 2, 'COHORT',        NULL, '{"cohorts": ["PREMIUM"]}'),
+  -- Platinum (rank 3)
+  (4, 3, 'ORDER_COUNT',   15,    NULL),
+  (5, 3, 'MONTHLY_SPEND', 10000, NULL);
