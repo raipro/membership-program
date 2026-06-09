@@ -3,6 +3,14 @@
 -- Column names match Hibernate's snake_case physical naming for the entities.
 
 -- ---------------------------------------------------------------------------
+-- Demo users (stub identities) so subscriptions can be created in the demo.
+-- ---------------------------------------------------------------------------
+INSERT INTO user_account (id, external_id, email, cohort, created_at) VALUES
+  (1, 'ext-1001', 'alice@example.com', 'REGULAR', CURRENT_TIMESTAMP),
+  (2, 'ext-1002', 'bob@example.com',   'PREMIUM', CURRENT_TIMESTAMP),
+  (3, 'ext-1003', 'carol@example.com', 'REGULAR', CURRENT_TIMESTAMP);
+
+-- ---------------------------------------------------------------------------
 -- Plans (billing axis): cadence + duration. `price` is a reference "from" price.
 -- ---------------------------------------------------------------------------
 INSERT INTO membership_plan (id, code, name, billing_period, duration_days, price, currency, active, created_at) VALUES
