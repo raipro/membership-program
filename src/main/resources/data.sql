@@ -8,7 +8,11 @@
 INSERT INTO user_account (id, external_id, email, cohort, created_at) VALUES
   (1, 'ext-1001', 'alice@example.com', 'REGULAR', CURRENT_TIMESTAMP),
   (2, 'ext-1002', 'bob@example.com',   'PREMIUM', CURRENT_TIMESTAMP),
-  (3, 'ext-1003', 'carol@example.com', 'REGULAR', CURRENT_TIMESTAMP);
+  (3, 'ext-1003', 'carol@example.com', 'REGULAR', CURRENT_TIMESTAMP),
+  -- Users 4-6 anchor seeded past-due subscriptions for the maintenance-sweep demo.
+  (4, 'ext-1004', 'dave@example.com',  'REGULAR', CURRENT_TIMESTAMP),
+  (5, 'ext-1005', 'erin@example.com',  'REGULAR', CURRENT_TIMESTAMP),
+  (6, 'ext-1006', 'frank@example.com', 'REGULAR', CURRENT_TIMESTAMP);
 
 -- ---------------------------------------------------------------------------
 -- Plans (billing axis): cadence + duration. `price` is a reference "from" price.
@@ -82,3 +86,16 @@ INSERT INTO tier_criterion (id, tier_id, type, threshold, criterion_metadata) VA
   -- Platinum (rank 3)
   (4, 3, 'ORDER_COUNT',   15,    NULL),
   (5, 3, 'MONTHLY_SPEND', 10000, NULL);
+
+-- ---------------------------------------------------------------------------
+-- Past-due ACTIVE subscriptions (end_date in the past) to demo the maintenance sweep:
+--   100: user 4, auto-renew, Silver  -> renews, keeps Silver (still eligible)
+--   101: user 5, no auto-renew, Silver -> expires
+--   102: user 6, auto-renew, Gold    -> renews but DOWNGRADES to Silver (no longer eligible)
+-- High ids avoid colliding with API-created subscriptions (which start at 1).
+-- ---------------------------------------------------------------------------
+INSERT INTO subscription
+  (id, user_id, plan_id, tier_id, status, start_date, end_date, price, currency, auto_renew, active_user_key, idempotency_key, version, created_at, updated_at) VALUES
+  (100, 4, 1, 1, 'ACTIVE', DATE '2020-01-01', DATE '2020-01-31',  99.00, 'INR', TRUE,  4, NULL, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (101, 5, 1, 1, 'ACTIVE', DATE '2020-01-01', DATE '2020-01-31',  99.00, 'INR', FALSE, 5, NULL, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (102, 6, 1, 2, 'ACTIVE', DATE '2020-01-01', DATE '2020-01-31', 199.00, 'INR', TRUE,  6, NULL, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);

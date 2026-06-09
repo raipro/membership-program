@@ -9,11 +9,15 @@ import com.firstclub.membership.pricing.PlanTierPriceRepository;
 import com.firstclub.membership.subscription.dto.MembershipSubscriptionRequest;
 import com.firstclub.membership.subscription.dto.MembershipSubscriptionResponse;
 import com.firstclub.membership.subscription.eligibility.TierEligibilityService;
+import com.firstclub.membership.subscription.event.SubscriptionExpiredEvent;
+import com.firstclub.membership.subscription.event.SubscriptionRenewedEvent;
+import com.firstclub.membership.subscription.event.SubscriptionTierChangedEvent;
 import com.firstclub.membership.tier.MembershipTier;
 import com.firstclub.membership.tier.TierRepository;
 import com.firstclub.membership.user.UserAccount;
 import com.firstclub.membership.user.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.Comparator;
+import java.util.List;
 
 /**
  * Subscribe and current-membership lookups.
@@ -43,6 +49,7 @@ public class SubscriptionService {
     private final TierRepository tierRepository;
     private final PlanTierPriceRepository priceRepository;
     private final TierEligibilityService eligibilityService;
+    private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
 
     @Transactional
@@ -174,7 +181,10 @@ public class SubscriptionService {
                         "Plan '%s' with tier '%s' is not purchasable"
                                 .formatted(subscription.getPlan().getCode(), targetTier.getCode())));
 
+        String fromTierCode = subscription.getTier().getCode();
         subscription.changeTier(targetTier, price.getPrice(), price.getCurrency());
+        eventPublisher.publishEvent(new SubscriptionTierChangedEvent(
+                subscription.getId(), subscription.getUser().getId(), fromTierCode, targetTier.getCode()));
         return toResponse(subscription);
     }
 
@@ -203,6 +213,69 @@ public class SubscriptionService {
             }
         }
         throw new BusinessRuleException("User already has an active subscription");
+    }
+
+    /** Ids of subscriptions whose term has ended as of the current clock date. */
+    @Transactional(readOnly = true)
+    public List<Long> findDueSubscriptionIds() {
+        return subscriptionRepository.findDueSubscriptionIds(SubscriptionStatus.ACTIVE, LocalDate.now(clock));
+    }
+
+    /**
+     * Process one due subscription in its own transaction: renew it (re-checking the
+     * eligibility ceiling) or expire it. Idempotent — re-checks status/due-ness so a
+     * concurrent run or stale id is a no-op.
+     */
+    @Transactional
+    public DueOutcome processDueSubscription(Long subscriptionId) {
+        Subscription subscription = subscriptionRepository.findById(subscriptionId).orElse(null);
+        if (subscription == null || !subscription.isActive()) {
+            return DueOutcome.SKIPPED;
+        }
+        LocalDate today = LocalDate.now(clock);
+        if (!subscription.getEndDate().isBefore(today)) {
+            return DueOutcome.SKIPPED;
+        }
+        return subscription.isAutoRenew() ? renew(subscription, today) : expire(subscription);
+    }
+
+    private DueOutcome renew(Subscription subscription, LocalDate today) {
+        // Re-check eligibility: keep the current tier if still earned, else downgrade to
+        // the highest tier the user still qualifies for. Never auto-upgrade / upcharge.
+        int ceiling = eligibilityService.eligibleRankCeiling(subscription.getUser());
+        MembershipTier renewalTier = resolveRenewalTier(subscription.getTier(), ceiling);
+
+        var priceOpt = priceRepository.findByPlanIdAndTierIdAndActiveTrue(
+                subscription.getPlan().getId(), renewalTier.getId());
+        if (priceOpt.isEmpty()) {
+            // No purchasable price for the renewal tier → cannot renew; expire instead.
+            return expire(subscription);
+        }
+
+        LocalDate newStart = subscription.getEndDate().isBefore(today) ? today : subscription.getEndDate();
+        LocalDate newEnd = newStart.plusDays(subscription.getPlan().getDurationDays());
+        subscription.renew(newStart, newEnd, renewalTier, priceOpt.get().getPrice(), priceOpt.get().getCurrency());
+
+        eventPublisher.publishEvent(new SubscriptionRenewedEvent(
+                subscription.getId(), subscription.getUser().getId(), renewalTier.getCode(), newEnd));
+        return DueOutcome.RENEWED;
+    }
+
+    private DueOutcome expire(Subscription subscription) {
+        subscription.expire();
+        eventPublisher.publishEvent(new SubscriptionExpiredEvent(
+                subscription.getId(), subscription.getUser().getId()));
+        return DueOutcome.EXPIRED;
+    }
+
+    private MembershipTier resolveRenewalTier(MembershipTier current, int ceiling) {
+        if (current.getRank() <= ceiling) {
+            return current;
+        }
+        return tierRepository.findByActiveTrueOrderByRankAsc().stream()
+                .filter(tier -> tier.getRank() <= ceiling)
+                .max(Comparator.comparingInt(MembershipTier::getRank))
+                .orElse(current);
     }
 
     private enum ChangeDirection {

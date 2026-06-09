@@ -11,6 +11,7 @@ import com.firstclub.membership.tier.TierRepository;
 import com.firstclub.membership.user.UserAccount;
 import com.firstclub.membership.user.UserRepository;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -37,11 +38,12 @@ class SubscriptionServiceTest {
     private final TierRepository tierRepository = mock(TierRepository.class);
     private final PlanTierPriceRepository priceRepository = mock(PlanTierPriceRepository.class);
     private final TierEligibilityService eligibilityService = mock(TierEligibilityService.class);
+    private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
     private final Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC);
 
     private final SubscriptionService service = new SubscriptionService(
             subscriptionRepository, userRepository, planRepository, tierRepository,
-            priceRepository, eligibilityService, clock);
+            priceRepository, eligibilityService, eventPublisher, clock);
 
     private final UserAccount user = mock(UserAccount.class);
     private final MembershipPlan plan = mock(MembershipPlan.class);

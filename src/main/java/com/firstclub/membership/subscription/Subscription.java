@@ -126,6 +126,20 @@ public class Subscription extends AuditEntity {
         this.currency = newCurrency;
     }
 
+    /**
+     * Renew an ACTIVE subscription for a new term, possibly at a different tier (a
+     * downgrade if the user no longer qualifies). Updates the price snapshot; stays ACTIVE.
+     */
+    public void renew(LocalDate newStartDate, LocalDate newEndDate, MembershipTier tier,
+                      BigDecimal newPrice, String newCurrency) {
+        ensureActive("renew");
+        this.startDate = newStartDate;
+        this.endDate = newEndDate;
+        this.tier = tier;
+        this.price = newPrice;
+        this.currency = newCurrency;
+    }
+
     /** ACTIVE → CANCELLED, releasing the per-user active slot. */
     public void cancel() {
         ensureActive("cancel");
