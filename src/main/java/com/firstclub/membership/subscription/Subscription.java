@@ -114,6 +114,18 @@ public class Subscription extends AuditEntity {
         return s;
     }
 
+    /**
+     * Change the tier of an ACTIVE subscription (upgrade or downgrade). Updates the price
+     * snapshot to the new tier's price; the term (end date) is unchanged and no money moves
+     * mid-cycle. Direction/eligibility checks are the service's responsibility.
+     */
+    public void changeTier(MembershipTier newTier, BigDecimal newPrice, String newCurrency) {
+        ensureActive("change tier");
+        this.tier = newTier;
+        this.price = newPrice;
+        this.currency = newCurrency;
+    }
+
     /** ACTIVE → CANCELLED, releasing the per-user active slot. */
     public void cancel() {
         ensureActive("cancel");

@@ -2,6 +2,7 @@ package com.firstclub.membership.subscription;
 
 import com.firstclub.membership.subscription.dto.MembershipSubscriptionRequest;
 import com.firstclub.membership.subscription.dto.MembershipSubscriptionResponse;
+import com.firstclub.membership.subscription.dto.MembershipTierChangeRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -32,5 +33,22 @@ public class SubscriptionController {
     @GetMapping("/users/{userId}/subscription")
     public MembershipSubscriptionResponse getCurrentSubscription(@PathVariable Long userId) {
         return subscriptionService.getCurrentSubscription(userId);
+    }
+
+    @PostMapping("/subscriptions/{id}/upgrade")
+    public MembershipSubscriptionResponse upgrade(@PathVariable Long id,
+                                                  @Valid @RequestBody MembershipTierChangeRequest request) {
+        return subscriptionService.upgrade(id, request.getTierId());
+    }
+
+    @PostMapping("/subscriptions/{id}/downgrade")
+    public MembershipSubscriptionResponse downgrade(@PathVariable Long id,
+                                                    @Valid @RequestBody MembershipTierChangeRequest request) {
+        return subscriptionService.downgrade(id, request.getTierId());
+    }
+
+    @PostMapping("/subscriptions/{id}/cancel")
+    public MembershipSubscriptionResponse cancel(@PathVariable Long id) {
+        return subscriptionService.cancel(id);
     }
 }

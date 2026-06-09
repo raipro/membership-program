@@ -104,6 +104,80 @@ public class SubscriptionService {
         return toResponse(subscription);
     }
 
+    /** Upgrade to a higher-rank tier the user is eligible for. */
+    @Transactional
+    public MembershipSubscriptionResponse upgrade(Long subscriptionId, Long targetTierId) {
+        return changeTier(subscriptionId, targetTierId, ChangeDirection.UPGRADE);
+    }
+
+    /** Downgrade to a lower-rank tier. */
+    @Transactional
+    public MembershipSubscriptionResponse downgrade(Long subscriptionId, Long targetTierId) {
+        return changeTier(subscriptionId, targetTierId, ChangeDirection.DOWNGRADE);
+    }
+
+    @Transactional
+    public MembershipSubscriptionResponse cancel(Long subscriptionId) {
+        Subscription subscription = subscriptionRepository.findById(subscriptionId)
+                .orElseThrow(() -> ResourceNotFoundException.of("Subscription", subscriptionId));
+        if (!subscription.isActive()) {
+            throw new BusinessRuleException(
+                    "Only an active subscription can be cancelled (current status: %s)"
+                            .formatted(subscription.getStatus()));
+        }
+        subscription.cancel();
+        return toResponse(subscription);
+    }
+
+    private MembershipSubscriptionResponse changeTier(Long subscriptionId, Long targetTierId,
+                                                     ChangeDirection direction) {
+        Subscription subscription = subscriptionRepository.findById(subscriptionId)
+                .orElseThrow(() -> ResourceNotFoundException.of("Subscription", subscriptionId));
+        if (!subscription.isActive()) {
+            throw new BusinessRuleException(
+                    "Only an active subscription can be changed (current status: %s)"
+                            .formatted(subscription.getStatus()));
+        }
+
+        MembershipTier targetTier = tierRepository.findById(targetTierId)
+                .orElseThrow(() -> ResourceNotFoundException.of("Tier", targetTierId));
+        if (!targetTier.isActive()) {
+            throw new BusinessRuleException("Tier '%s' is not available".formatted(targetTier.getCode()));
+        }
+
+        int currentRank = subscription.getTier().getRank();
+        int targetRank = targetTier.getRank();
+        if (targetTier.getId().equals(subscription.getTier().getId())) {
+            throw new BusinessRuleException("Subscription is already on tier '%s'".formatted(targetTier.getCode()));
+        }
+        // Direction must match the operation.
+        if (direction == ChangeDirection.UPGRADE && targetRank <= currentRank) {
+            throw new BusinessRuleException(
+                    "Tier '%s' is not an upgrade from the current tier".formatted(targetTier.getCode()));
+        }
+        if (direction == ChangeDirection.DOWNGRADE && targetRank >= currentRank) {
+            throw new BusinessRuleException(
+                    "Tier '%s' is not a downgrade from the current tier".formatted(targetTier.getCode()));
+        }
+
+        // Eligibility gate: target tier must be within the user's earned ceiling.
+        int ceiling = eligibilityService.eligibleRankCeiling(subscription.getUser());
+        if (targetRank > ceiling) {
+            throw new BusinessRuleException(
+                    "Tier '%s' is not unlocked yet; you are currently eligible up to tier rank %d"
+                            .formatted(targetTier.getCode(), ceiling));
+        }
+
+        PlanTierPrice price = priceRepository
+                .findByPlanIdAndTierIdAndActiveTrue(subscription.getPlan().getId(), targetTier.getId())
+                .orElseThrow(() -> new BusinessRuleException(
+                        "Plan '%s' with tier '%s' is not purchasable"
+                                .formatted(subscription.getPlan().getCode(), targetTier.getCode())));
+
+        subscription.changeTier(targetTier, price.getPrice(), price.getCurrency());
+        return toResponse(subscription);
+    }
+
     @Transactional(readOnly = true)
     public MembershipSubscriptionResponse getCurrentSubscription(Long userId) {
         if (!userRepository.existsById(userId)) {
@@ -129,6 +203,11 @@ public class SubscriptionService {
             }
         }
         throw new BusinessRuleException("User already has an active subscription");
+    }
+
+    private enum ChangeDirection {
+        UPGRADE,
+        DOWNGRADE
     }
 
     private MembershipSubscriptionResponse toResponse(Subscription s) {

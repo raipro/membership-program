@@ -171,7 +171,7 @@ Each task is independently codeable, reviewable, and leaves the app compiling/ru
 | **Task 2 — Plan & Tier catalog** | Entities `MembershipPlan`, `MembershipTier`, `plan_tier_price`, repos, `data.sql` seed data, read APIs: `GET /plans`, `GET /tiers`, `GET /tiers/{id}`, `GET /plans/pricing` (full priceable matrix). | "Get membership plans and tiers" requirement done. |
 | **Task 3 — Benefits & configurability** | `Benefit`, `TierBenefit` (with `benefit_metadata`), `BenefitService` to resolve effective benefits for a tier, `GET /tiers/{id}/benefits`. Strategy seam for benefit types (delivery, discount, exclusive deals, priority support). | Configurable perks per tier demonstrated. |
 | **Task 4 — Subscription core** | `Subscription` entity + status state machine, `SubscriptionService`: **subscribe (plan+tier)** with price resolved from `plan_tier_price`, **track current membership & expiry**, `POST /subscriptions`, `GET /users/{id}/subscription`. Introduce `TierEligibilityService` seam (initial impl: only base tier eligible) so subscribe is gated from day one; Task 6 swaps in the real criteria impl. Concurrency: `@Version` + one-active-per-user guard + idempotency. | Core subscribe + tracking working, gate seam in place. |
-| **Task 5 — Lifecycle: upgrade / downgrade / cancel** | Tier upgrade & downgrade **gated by eligibility ceiling** (reject `rank > eligibleTier.rank`), proration via `ProrationPolicy` seam, cancel, `subscription_history` audit writes, endpoints `POST /subscriptions/{id}/upgrade\|downgrade\|cancel`. | Full user-action set complete, audited, gate-enforced. |
+| **Task 5 — Lifecycle: upgrade / downgrade / cancel** | Tier upgrade & downgrade **gated by eligibility ceiling** (reject `rank > eligibleTier.rank`), cancel, endpoints `POST /subscriptions/{id}/upgrade\|downgrade\|cancel`. Tier change is immediate, updates the price snapshot, no mid-cycle money movement. (Proration + `subscription_history` audit dropped — not core; see decisions.) | Full user-action set complete, gate-enforced. |
 | **Task 6 — Tier evaluation engine** | `TierCriterion` strategy interface + `OrderCountCriterion`, `MonthlySpendCriterion`, `CohortCriterion`. `TierEvaluationService` computes `eligibleTier` (authorization ceiling) from `user_order_stats`, persists to `user_tier_status`. Base tier ungated. Endpoint to ingest/simulate order stats (`POST /users/{id}/orders`) + `POST /users/{id}/tier/evaluate` + `GET /users/{id}/tier/eligibility`. | Eligibility gate that powers Task 5 — the standout abstraction. |
 | **Task 7 — Scheduled jobs & expiry** | `@Scheduled` sweep: expire past-due subscriptions, auto-renew, periodic tier re-evaluation. Domain events for upgrade/expire. | Expiry/renewal automation. |
 | **Task 8 — Hardening & demo** | Integration tests (Testcontainers/H2), concurrency test (parallel subscribe), seed/demo script, README with curl walkthrough, OpenAPI/Swagger UI. | Demo-able, evaluation criteria met. |
@@ -184,8 +184,11 @@ Each task is independently codeable, reviewable, and leaves the app compiling/ru
   to keep the demo lean). JSON config columns stored as `text` for H2/Postgres portability.
 - **Pricing model:** **Plan × Tier matrix** (`plan_tier_price` table) — authoritative source of
   subscription price.
-- **Proration on upgrade/downgrade (default):** immediate tier change, no mid-cycle refund/charge
-  for the demo; `ProrationPolicy` seam left swappable.
+- **Proration: dropped (not core).** No payment/billing system is in scope, so there is no money to
+  prorate. Upgrade/downgrade changes the tier immediately, updates the price snapshot to the new
+  tier's price (correct for renewal), keeps the end date, and moves no money mid-cycle. No
+  `ProrationPolicy` abstraction (YAGNI).
+- **`subscription_history` audit: dropped (not core).** Out of scope for the core requirements.
 - **Order signals:** no real order service exists, so a small endpoint pushes/simulates
   `user_order_stats` to make tier evaluation demoable end-to-end.
 - **Tier semantics — criteria are a hard eligibility gate.** The spec uses "tier" two ways: a

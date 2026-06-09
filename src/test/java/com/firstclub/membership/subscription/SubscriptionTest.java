@@ -60,6 +60,28 @@ class SubscriptionTest {
     }
 
     @Test
+    void changeTier_updatesTierAndPrice_whileStayingActive() {
+        Subscription s = activeSubscription();
+        MembershipTier gold = mock(MembershipTier.class);
+
+        s.changeTier(gold, new BigDecimal("199.00"), "INR");
+
+        assertThat(s.getTier()).isSameAs(gold);
+        assertThat(s.getPrice()).isEqualByComparingTo("199.00");
+        assertThat(s.isActive()).isTrue();
+    }
+
+    @Test
+    void changeTier_whenNotActive_throws() {
+        Subscription s = activeSubscription();
+        s.cancel();
+        MembershipTier gold = mock(MembershipTier.class);
+
+        assertThatThrownBy(() -> s.changeTier(gold, new BigDecimal("199.00"), "INR"))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
     void cancel_whenAlreadyTerminal_throws() {
         Subscription s = activeSubscription();
         s.cancel();
